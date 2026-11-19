@@ -102,8 +102,8 @@ h1{font-family:"Russo One",sans-serif;font-size:min(10vh,64px);letter-spacing:.0
 'use strict';
 /* ================= constants ================= */
 const DEG=Math.PI/180, G=9.81;
-const SEG=4, ROAD_W=5.6, EDGE_X=5.25, RAIL_X=7.8, CAM_BACK=4.2, CAM_H=2.0, DRAW=230;
-const LEAN_MAX=60*DEG, MU_ROAD=1.25, MU_GRAVEL=0.75, ROLLK=0.22, LAPS=2, BIKE_H=1.62;
+const SEG=4, ROAD_W=5.6, EDGE_X=5.25, RAIL_X=7.8, CAM_BACK=3.6, CAM_H=1.75, DRAW=230;
+const LEAN_MAX=60*DEG, MU_ROAD=1.4, MU_GRAVEL=0.85, ROLLK=0.22, LAPS=2, BIKE_H=1.62;
 const VMAX=75, GEARS=[13,22,32,43,56,76];
 const PARAMS=new URLSearchParams(location.search);
 const AUTO=PARAMS.has('auto');
@@ -119,7 +119,7 @@ const IMG={};
 const IMG_LIST=['bike_up','bike_lean','chevron','hairpin','pine','tree','tires','rock','stand','wall','lamp'];
 function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(src);i.src=src;});}
 async function loadAll(){
-  const jobs=[...IMG_LIST.map(n=>['assets/'+n+'.webp',n]),['assets/bg.jpg','bg']];
+  const jobs=[...IMG_LIST.map(n=>['assets/'+n+'.webp',n]),['assets/bg.jpg','bg'],['assets/asphalt.jpg','asphalt']];
   let done=0;const el=document.getElementById('load');
   await Promise.all(jobs.map(([s,n])=>loadImg(s).then(i=>{IMG[n]=i;done++;el.textContent='LOADING '+Math.round(done/jobs.length*100)+'%';})));
   // rival liveries (hue-shifted copies)
@@ -304,7 +304,7 @@ function initAudio(){
   AU.mus=AC.createGain();AU.mus.gain.value=0;AU.mus.connect(m);
   fetch('assets/bgm.mp3').then(r=>r.arrayBuffer()).then(b=>AC.decodeAudioData(b)).then(buf=>{const s=AC.createBufferSource();s.buffer=buf;s.loop=true;s.connect(AU.mus);s.start();AU.musOn=true;}).catch(()=>{});
 }
-function setMusic(on,t=0.8){if(!AU.mus)return;AU.mus.gain.setTargetAtTime(on&&settings.music?0.32:0,AC.currentTime,t);}
+function setMusic(on,t=0.8){if(!AU.mus)return;AU.mus.gain.setTargetAtTime(on&&settings.music?0.6:0,AC.currentTime,t);}
 function beep(f,d,v=0.3){if(!AC)return;const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=f;g.gain.value=v;g.gain.setTargetAtTime(0,AC.currentTime+d*0.6,d*0.2);o.connect(g).connect(AU.master);o.start();o.stop(AC.currentTime+d+0.2);}
 function crashSound(){if(!AC)return;const s=AC.createBufferSource();s.buffer=AU.nb;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=1400;const g=AC.createGain();g.gain.value=0.9;g.gain.setTargetAtTime(0,AC.currentTime+0.1,0.35);s.connect(f).connect(g).connect(AU.master);s.start();s.stop(AC.currentTime+2);}
 function updateAudio(){
@@ -335,7 +335,7 @@ function updatePlayer(dt){
   if(P.crash>0){updateCrash(dt);return;}
   if(P.inv>0)P.inv-=dt;
   const v=P.v;
-  const maxL=LEAN_MAX*Math.min(1,(v+2)/14);Lt=Math.max(-maxL,Math.min(maxL,Lt));
+  let maxL=LEAN_MAX*Math.min(1,(v+2)/14);if(settings.assist&&P.latLim)maxL=Math.min(maxL,P.latLim+3*DEG);Lt=Math.max(-maxL,Math.min(maxL,Lt));
   const rate=Math.max(1.5,Math.min(3.2,3.2-v/35));
   P.L+=Math.max(-rate*dt,Math.min(rate*dt,Lt-P.L));
   P.surface=Math.abs(P.x)>ROAD_W?1:0;
@@ -346,18 +346,19 @@ function updatePlayer(dt){
   const tire=aEng-aBrk;
   const drag=0.00032*v*v+(P.thr<0.05?0.6:0)+(P.surface?3.5+v*0.06:0);
   P.v=Math.max(0,v+(tire-drag)*dt);
-  const avail=Math.sqrt(Math.max(0,mu*mu-(tire/G)*(tire/G)));
+  const avail=Math.sqrt(Math.max(0,mu*mu-(tire/G)*(tire/G)));P.latLim=Math.atan(avail);
   let lat;
   if(tanL>avail&&v>3){P.slip=tanL-avail;lat=avail*G;P.slipT+=dt*(1+P.slip*7);
-    if(P.slipT>0.55||P.slip>0.38){doCrash(P.L>0?1:-1,'미끄러짐!');return;}}
-  else{P.slip=0;lat=tanL*G;P.slipT=Math.max(0,P.slipT-dt*2);}
+    if(P.slipT>(settings.assist?2.5:1.1)||P.slip>0.6){doCrash(P.L>0?1:-1,'미끄러짐!');return;}}
+  else{P.slip=0;lat=tanL*G;P.slipT=Math.max(0,P.slipT-dt*3);}
   const s=segAt(P.z);
   const yaw=Math.sign(P.L)*lat/Math.max(v,3);
   P.h+=(yaw-P.v*s.c)*dt;P.h=Math.max(-1.2,Math.min(1.2,P.h));
   P.x+=P.v*Math.sin(P.h)*dt;
   if(Math.abs(P.x)>RAIL_X-0.5){
-    if(P.v>13&&P.inv<=0){doCrash(Math.sign(P.x),'가드레일 충돌!');return;}
-    P.x=Math.sign(P.x)*(RAIL_X-0.5);P.h*=-0.2;P.v*=0.6;vib(60);
+    const hit=P.v*Math.abs(Math.sin(P.h));
+    if(hit>9&&P.v>25&&P.inv<=0){doCrash(Math.sign(P.x),'가드레일 충돌!');return;}
+    P.x=Math.sign(P.x)*(RAIL_X-0.5);P.h*=-0.15;P.v*=Math.max(0.55,1-hit*0.05);vib(60);shake=Math.max(shake,0.4);scrapeFx=1;
   }
   advanceZ(P.v*Math.cos(P.h)*dt,s,dt);
   // rpm/gear
@@ -498,7 +499,11 @@ function drawSeg(s,p1,p2,n){
   const fog=Math.min(1,n/DRAW*1.35);
   ctx.fillStyle=alt?'#6b7440':'#63693a';ctx.fillRect(-W,y2,W*3,y1-y2+1);
   quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,-RAIL_X-0.6,RAIL_X+0.6);
-  quad(alt?'#5d6066':'#585b61',a,y1,ROAD_W*s1,b,y2,ROAD_W*s2);
+  if(n<150&&IMG.asphalt){const T=IMG.asphalt,th=T.height/2,sy0=(s.i%2)*th,L=Math.min(a-ROAD_W*s1,b-ROAD_W*s2),R=Math.max(a+ROAD_W*s1,b+ROAD_W*s2);
+    if(n<40){ctx.save();ctx.beginPath();ctx.moveTo(a-ROAD_W*s1,y1+0.5);ctx.lineTo(b-ROAD_W*s2,y2-0.5);ctx.lineTo(b+ROAD_W*s2,y2-0.5);ctx.lineTo(a+ROAD_W*s1,y1+0.5);ctx.clip();ctx.drawImage(T,0,sy0,T.width,th,L,y2-0.5,R-L,y1-y2+1);ctx.restore();}
+    else ctx.drawImage(T,0,sy0,T.width,th,L,y2,R-L,y1-y2+0.6);
+    quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,-RAIL_X-0.6,-ROAD_W);quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,ROAD_W,RAIL_X+0.6);}
+  else quad(alt?'#5d6066':'#585b61',a,y1,ROAD_W*s1,b,y2,ROAD_W*s2);
   if(s.i===1){ // checker start line
     const k=10;for(let j=0;j<k;j++){const L=-ROAD_W+j*2*ROAD_W/k,R=L+2*ROAD_W/k;quadOff((j+s.i)%2?'#eee':'#151515',a,y1,s1,b,y2,s2,L,R);}
   }else{
