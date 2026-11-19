@@ -103,7 +103,7 @@ h1{font-family:"Russo One",sans-serif;font-size:min(10vh,64px);letter-spacing:.0
 /* ================= constants ================= */
 const DEG=Math.PI/180, G=9.81;
 const SEG=4, ROAD_W=5.6, EDGE_X=5.25, RAIL_X=7.8, CAM_BACK=3.6, CAM_H=1.75, DRAW=230;
-const LEAN_MAX=60*DEG, MU_ROAD=1.4, MU_GRAVEL=0.85, ROLLK=0.22, LAPS=2, BIKE_H=1.62;
+const LEAN_MAX=60*DEG, MU_ROAD=1.55, MU_GRAVEL=0.95, ROLLK=0.22, LAPS=2, BIKE_H=1.62;
 const VMAX=75, GEARS=[13,22,32,43,56,76];
 const PARAMS=new URLSearchParams(location.search);
 const AUTO=PARAMS.has('auto');
@@ -349,7 +349,7 @@ function updatePlayer(dt){
   const avail=Math.sqrt(Math.max(0,mu*mu-(tire/G)*(tire/G)));P.latLim=Math.atan(avail);
   let lat;
   if(tanL>avail&&v>3){P.slip=tanL-avail;lat=avail*G;P.slipT+=dt*(1+P.slip*7);
-    if(P.slipT>(settings.assist?2.5:1.1)||P.slip>0.6){doCrash(P.L>0?1:-1,'미끄러짐!');return;}}
+    if(P.slipT>(settings.assist?4:1.6)||P.slip>0.8){doCrash(P.L>0?1:-1,'미끄러짐!');return;}}
   else{P.slip=0;lat=tanL*G;P.slipT=Math.max(0,P.slipT-dt*3);}
   const s=segAt(P.z);
   const yaw=Math.sign(P.L)*lat/Math.max(v,3);
@@ -357,8 +357,8 @@ function updatePlayer(dt){
   P.x+=P.v*Math.sin(P.h)*dt;
   if(Math.abs(P.x)>RAIL_X-0.5){
     const hit=P.v*Math.abs(Math.sin(P.h));
-    if(hit>9&&P.v>25&&P.inv<=0){doCrash(Math.sign(P.x),'가드레일 충돌!');return;}
-    P.x=Math.sign(P.x)*(RAIL_X-0.5);P.h*=-0.15;P.v*=Math.max(0.55,1-hit*0.05);vib(60);shake=Math.max(shake,0.4);scrapeFx=1;
+    if(hit>12&&P.v>30&&P.inv<=0){doCrash(Math.sign(P.x),'가드레일 충돌!');return;}
+    P.x=Math.sign(P.x)*(RAIL_X-0.5);P.h*=-0.15;P.v*=Math.max(0.7,1-hit*0.03);vib(60);shake=Math.max(shake,0.4);scrapeFx=1;
   }
   advanceZ(P.v*Math.cos(P.h)*dt,s,dt);
   // rpm/gear
