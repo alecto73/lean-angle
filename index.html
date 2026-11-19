@@ -499,10 +499,15 @@ function drawSeg(s,p1,p2,n){
   const fog=Math.min(1,n/DRAW*1.35);
   ctx.fillStyle=alt?'#6b7440':'#63693a';ctx.fillRect(-W,y2,W*3,y1-y2+1);
   quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,-RAIL_X-0.6,RAIL_X+0.6);
-  if(n<150&&IMG.asphalt){const T=IMG.asphalt,th=T.height/2,sy0=(s.i%2)*th,L=Math.min(a-ROAD_W*s1,b-ROAD_W*s2),R=Math.max(a+ROAD_W*s1,b+ROAD_W*s2);
-    if(n<40){ctx.save();ctx.beginPath();ctx.moveTo(a-ROAD_W*s1,y1+0.5);ctx.lineTo(b-ROAD_W*s2,y2-0.5);ctx.lineTo(b+ROAD_W*s2,y2-0.5);ctx.lineTo(a+ROAD_W*s1,y1+0.5);ctx.clip();ctx.drawImage(T,0,sy0,T.width,th,L,y2-0.5,R-L,y1-y2+1);ctx.restore();}
-    else ctx.drawImage(T,0,sy0,T.width,th,L,y2,R-L,y1-y2+0.6);
-    quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,-RAIL_X-0.6,-ROAD_W);quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,ROAD_W,RAIL_X+0.6);}
+  if(n<150&&IMG.asphalt){const T=IMG.asphalt,th=T.height/4,sy0=(s.i%4)*th,hgt=y1-y2;
+    const k=Math.max(1,Math.min(40,Math.ceil(hgt/(5*DPR)))),z1=Math.max(0.7,p1.z),z2=p2.z;
+    for(let q=0;q<k;q++){const u0=q/k,u1=(q+1)/k,um=(u0+u1)/2;
+      const tz=t=>{const iz=(1-t)/z1+t/z2;return (1/iz-z1)/(z2-z1);};
+      const t0=tz(u0),t1=tz(u1);
+      const cx=a+(b-a)*um,hw=ROAD_W*(s1+(s2-s1)*um),yy1=y1-hgt*u1;let yy0=y1-hgt*u0;if(yy1>=s.clip)continue;yy0=Math.min(yy0,s.clip);
+      ctx.drawImage(T,0,sy0+th*(1-t1),T.width,Math.max(0.5,th*(t1-t0)),cx-hw,yy1-0.4,hw*2,yy0-yy1+0.4);}
+    quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,-RAIL_X-0.6,-ROAD_W);quadOff(alt?'#a19476':'#988b6e',a,y1,s1,b,y2,s2,ROAD_W,RAIL_X+0.6);
+  }
   else quad(alt?'#5d6066':'#585b61',a,y1,ROAD_W*s1,b,y2,ROAD_W*s2);
   if(s.i===1){ // checker start line
     const k=10;for(let j=0;j<k;j++){const L=-ROAD_W+j*2*ROAD_W/k,R=L+2*ROAD_W/k;quadOff((j+s.i)%2?'#eee':'#151515',a,y1,s1,b,y2,s2,L,R);}
